@@ -707,11 +707,11 @@ rapidgator_upload() {
 		if [[ "$HTML" =~ .*\"success\":true.* ]]; then
 			#Get Download URL
 			
-			HTML=$(curl_with_log --referer "$URL" -b "$COOKIE_FILE" \
+			HTML=$(curl --referer "$URL" -b "$COOKIE_FILE" \
 			-d "uuid"%"5B0"%"5D"%"5Buuid"%"5D=$QQUUID&uuid"%"5B0"%"5D"%"5Bsid"%"5D=$SESSION_ID" \
 			 -H "X-Requested-With: XMLHttpRequest" "$UPLOAD_STATE_URL") || return
 			
-			log_notice "$HTML"
+			#log_notice "$HTML"
 			
 			if [[ "$HTML" =~ .*\""$QQUUID"\".* ]]; then
                 		LINK="https://rapidgator.net/file/"$( echo "$HTML" | sed 's/.*"id32":"\(.*\)".*/\1/' ) 
