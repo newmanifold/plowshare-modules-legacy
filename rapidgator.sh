@@ -642,42 +642,88 @@ rapidgator_upload() {
         fi
 
         # Scrape URLs from site (upload server changes each time)
-        UP_URL=$(parse 'var form_url' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
-        PROG_URL=$(parse 'var progress_url_srv' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
+        # log_notice "$HTML"
+	# log_notice "${#HTML}"
+	END_POINT=$(echo "$HTML" | sed -n "s/.*var ep = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
+	#log_notice "$END_POINT"
+	
+	RANDOM_UUID=$(cat /proc/sys/kernel/random/uuid)
+	
+	FILE_SIZE=$(wc -c < "$FILE")
+	FILE_MD5=($(md5sum "$FILE"))
+	REQUEST_URL=$(curl -X POST --referer "$URL" -b "$COOKIE_FILE" -H "X-Requested-With: XMLHttpRequest" --data "hash=$FILE_MD5&size=$FILE_SIZE&name=$FILE&folder_id=$FOLDER_ID&id=0&uuid=$RANDOM_UUID" "$END_POINT")
+	
+	#log_notice "$COOKIE_FILE"
+	
+	#log_notice "$REQUEST_URL"
+        
+	if [[ "$REQUEST_URL" =~ .*\"success\":true.* ]]; then
+		LINK="https://rapidgator.net/file/"$( echo "$REQUEST_URL" | sed 's/.*"id32":"\(.*\)".*/\1/' )
+		
+		
+	elif [[ "$REQUEST_URL" =~ .*\"error\":.* ]]; then
+		ERROR_STRING=$( echo "$REQUEST_URL" | sed 's/.*"error":"\(.*\)".*/\1/' )
+		log_error "$ERROR_STRING"
+	else
 
-        log_debug "Upload URL: '$UP_URL'"
-        log_debug "Progress URL: '$PROG_URL'"
-        log_debug "Folder ID: '$FOLDER_ID'"
+		SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)","sid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2"/')
+	
+		#log_notice "$SCRIPT_TO_EVAL"
 
-        # Session ID is created this way (in uploadwidget.js):
-        #   var i, uuid = "";
-        #   for (i = 0; i < 32; i++) {
-        #       uuid += Math.floor(Math.random() * 16).toString(16);
-        #   }
-        SESSION_ID=$(random h 32)
-        START_TIME=$(date +%s)
+		eval "$SCRIPT_TO_EVAL"
+	
+		ENDPOINT=$( echo "$ENDPOINT" | sed 's/\(\\\/\)/\//g' )
+	
+		#log_notice "$ENDPOINT"
 
-        # Upload file
-        HTML=$(curl_with_log --referer "$URL" -b "$COOKIE_FILE" \
-            -F "file=@$FILE;type=application/octet-stream;filename=$DEST_FILE" \
-            "$UP_URL$SESSION_ID&folder_id=$FOLDER_ID") || return
+		#wait 180 || return
+	
+		#UP_URL=$(parse 'var form_url' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
+        	#PROG_URL=$(parse 'var progress_url_srv' 'setProtocol("\(.\+\)");' <<< "$HTML") || return
 
-        wait 5 || return
+        	#log_debug "Upload URL: '$UP_URL'"
+        	#log_debug "Progress URL: '$PROG_URL'"
+        	log_debug "Folder ID: '$FOLDER_ID'"
 
+        	# Session ID is created this way (in uploadwidget.js):
+        	#   var i, uuid = "";
+        	#   for (i = 0; i < 32; i++) {
+        	#       uuid += Math.floor(Math.random() * 16).toString(16);
+        	#   }
+        	#SESSION_ID=$(random h 32)
+        	#START_TIME=$(date +%s)
+
+        	# Upload file
+        	HTML=$(curl_with_log --referer "$URL" -b "$COOKIE_FILE" \
+            -F "ajax=false&qquuid=$QQUUID&qqfilename=$DEST_FILE&qqtotalfilesize=$FILE_SIZE" -H "X-Requested-With: XMLHttpRequest"\
+		-F "file=@$FILE;type=application/octet-stream;filename=$DEST_FILE" \
+            "$ENDPOINT") || return
+
+        	wait 5 || return
+		
+		#log_notice "$HTML"
+		
+		if [[ "$HTML" =~ .*\"success\":true.* ]]; then 
+			echo "FILE UPLOADED BUT CAN't GET LINK";
+		else
+			log_error "There was an error uploading the file."
+		fi
+	fi	
+	
         # Get download URL
-        JSON=$(curl --referer "$URL" -H "Origin: $BASE_URL" \
-            -H 'Accept: application/json, text/javascript, */*; q=0.01' \
-            "$PROG_URL&data%5B0%5D%5Buuid%5D=$SESSION_ID&data%5B0%5D%5Bstart_time%5D=$START_TIME") || return
+        #JSON=$(curl --referer "$URL" -H "Origin: $BASE_URL" \
+         #   -H 'Accept: application/json, text/javascript, */*; q=0.01' \
+          #  "$PROG_URL&data%5B0%5D%5Buuid%5D=$SESSION_ID&data%5B0%5D%5Bstart_time%5D=$START_TIME") || return
 
         # Check status
-        STATE=$(parse_json 'state' <<< "$JSON") || return
-        if [ "$STATE" != 'done' ]; then
-            log_error "Unexpected state: '$STATE'"
-            return $ERR_FATAL
-        fi
+        #STATE=$(parse_json 'state' <<< "$JSON") || return
+        #if [ "$STATE" != 'done' ]; then
+         #   log_error "Unexpected state: '$STATE'"
+         #   return $ERR_FATAL
+        #fi
 
-        LINK=$(parse_json 'download_url' <<< "$JSON") || return
-        DEL_LINK=$(parse_json 'remove_url' <<< "$JSON") || return
+        #LINK=$(parse_json 'download_url' <<< "$JSON") || return
+        #DEL_LINK=$(parse_json 'remove_url' <<< "$JSON") || return
     fi
 
     echo "$LINK"
