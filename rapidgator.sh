@@ -645,8 +645,9 @@ rapidgator_upload() {
         # log_notice "$HTML"
 	# log_notice "${#HTML}"
 	END_POINT=$(echo "$HTML" | sed -n "s/.*var ep = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
+	UPLOAD_STATE_URL=$(echo "$HTML" | sed -n "s/.*var upload_state = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
 	#log_notice "$END_POINT"
-	
+	#log_notice "$UPLOAD_STATE_URL"
 	RANDOM_UUID=$(cat /proc/sys/kernel/random/uuid)
 	
 	FILE_SIZE=$(wc -c < "$FILE")
@@ -666,7 +667,7 @@ rapidgator_upload() {
 		log_error "$ERROR_STRING"
 	else
 
-		SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)","sid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2"/')
+		SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)","sid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2" SESSION_ID="\3"/')
 	
 		#log_notice "$SCRIPT_TO_EVAL"
 
@@ -703,8 +704,20 @@ rapidgator_upload() {
 		
 		#log_notice "$HTML"
 		
-		if [[ "$HTML" =~ .*\"success\":true.* ]]; then 
-			echo "FILE UPLOADED BUT CAN't GET LINK";
+		if [[ "$HTML" =~ .*\"success\":true.* ]]; then
+			#Get Download URL
+			
+			HTML=$(curl_with_log --referer "$URL" -b "$COOKIE_FILE" \
+			-d "uuid"%"5B0"%"5D"%"5Buuid"%"5D=$QQUUID&uuid"%"5B0"%"5D"%"5Bsid"%"5D=$SESSION_ID" \
+			 -H "X-Requested-With: XMLHttpRequest" "$UPLOAD_STATE_URL") || return
+			
+			log_notice "$HTML"
+			
+			if [[ "$HTML" =~ .*\""$QQUUID"\".* ]]; then
+                		LINK="https://rapidgator.net/file/"$( echo "$HTML" | sed 's/.*"id32":"\(.*\)".*/\1/' ) 
+			else
+				echo "ERROR GETTING DOWNLOAD LINK"
+			fi
 		else
 			log_error "There was an error uploading the file."
 		fi
