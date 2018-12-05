@@ -695,8 +695,9 @@ rapidgator_upload() {
         	#START_TIME=$(date +%s)
 
         	# Upload file
+		FILENAME=$( basename "$DEST_FILE" )
         	HTML=$(curl_with_log --referer "$URL" -b "$COOKIE_FILE" \
-            -F "ajax=false&qquuid=$QQUUID&qqfilename=$DEST_FILE&qqtotalfilesize=$FILE_SIZE" -H "X-Requested-With: XMLHttpRequest"\
+            -F "ajax=false&qquuid=$QQUUID&qqfilename=$FILENAME&qqtotalfilesize=$FILE_SIZE" -H "X-Requested-With: XMLHttpRequest"\
 		-F "file=@$FILE;type=application/octet-stream;filename=$DEST_FILE" \
             "$ENDPOINT") || return
 
