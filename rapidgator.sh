@@ -474,7 +474,7 @@ rapidgator_upload() {
     local -r FILE=$2
     local -r DEST_FILE=$3
     local -r BASE_URL='https://rapidgator.net'
-    local HTML URL LINK DEL_LINK
+    local ENDPOINT QQUUID SESSION_ID HTML URL LINK DEL_LINK
 
     # Sanity checks
     [ -n "$AUTH" ] || return $ERR_LINK_NEED_PERMISSIONS
@@ -644,15 +644,15 @@ rapidgator_upload() {
         # Scrape URLs from site (upload server changes each time)
         # log_notice "$HTML"
 	# log_notice "${#HTML}"
-	END_POINT=$(echo "$HTML" | sed -n "s/.*var ep = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
-	UPLOAD_STATE_URL=$(echo "$HTML" | sed -n "s/.*var upload_state = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
+	local END_POINT=$(echo "$HTML" | sed -n "s/.*var ep = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
+	local UPLOAD_STATE_URL=$(echo "$HTML" | sed -n "s/.*var upload_state = setProtocol('http:\/\/\([^)]*\)').*/https:\/\/\1/p")
 	#log_notice "$END_POINT"
 	#log_notice "$UPLOAD_STATE_URL"
-	RANDOM_UUID=$(cat /proc/sys/kernel/random/uuid)
+	local RANDOM_UUID=$(cat /proc/sys/kernel/random/uuid)
 	
-	FILE_SIZE=$(wc -c < "$FILE")
-	FILE_MD5=($(md5sum "$FILE"))
-	REQUEST_URL=$(curl -X POST --referer "$URL" -b "$COOKIE_FILE" -H "X-Requested-With: XMLHttpRequest" --data "hash=$FILE_MD5&size=$FILE_SIZE&name=$FILE&folder_id=$FOLDER_ID&id=0&uuid=$RANDOM_UUID" "$END_POINT")
+	local FILE_SIZE=$(wc -c < "$FILE")
+	local FILE_MD5=($(md5sum "$FILE"))
+	local REQUEST_URL=$(curl -X POST --referer "$URL" -b "$COOKIE_FILE" -H "X-Requested-With: XMLHttpRequest" --data "hash=$FILE_MD5&size=$FILE_SIZE&name=$DEST_FILE&folder_id=$FOLDER_ID&id=0&uuid=$RANDOM_UUID" "$END_POINT")
 	
 	#log_notice "$COOKIE_FILE"
 	
@@ -667,7 +667,7 @@ rapidgator_upload() {
 		log_error "$ERROR_STRING"
 	else
 
-		SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)","sid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2" SESSION_ID="\3"/')
+		local SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)","sid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2" SESSION_ID="\3"/')
 	
 		#log_notice "$SCRIPT_TO_EVAL"
 
@@ -695,9 +695,8 @@ rapidgator_upload() {
         	#START_TIME=$(date +%s)
 
         	# Upload file
-		FILENAME=$( basename "$DEST_FILE" )
         	HTML=$(curl_with_log --referer "$URL" -b "$COOKIE_FILE" \
-            -F "ajax=false&qquuid=$QQUUID&qqfilename=$FILENAME&qqtotalfilesize=$FILE_SIZE" -H "X-Requested-With: XMLHttpRequest"\
+            -F "ajax=false&qquuid=$QQUUID&qqfilename=$DEST_FILE&qqtotalfilesize=$FILE_SIZE" -H "X-Requested-With: XMLHttpRequest"\
 		-F "file=@$FILE;type=application/octet-stream;filename=$DEST_FILE" \
             "$ENDPOINT") || return
 
