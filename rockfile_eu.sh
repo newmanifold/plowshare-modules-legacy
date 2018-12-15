@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Plowshare.  If not, see <http://www.gnu.org/licenses/>.
 
-MODULE_ROCKFILE_EU_REGEXP_URL='https\?://\(www\.\)\?rockfile\.eu/'
+MODULE_ROCKFILE_EU_REGEXP_URL='https\?://\(www\.\)\?rockfile\.co/'
 
 MODULE_ROCKFILE_EU_UPLOAD_OPTIONS="
 AUTH,a,auth,a=USER:PASSWORD,User account (mandatory)
@@ -39,6 +39,8 @@ rockfile_eu_cloudflare() {
     local PAGE=$1
     local -r COOKIE_FILE=$2
     local -r BASE_URL="$(basename_url "$3")"
+
+    log_notice $BASE_URL
 
     # check for DDoS protection
     # <title>Just a moment...</title>
@@ -63,8 +65,10 @@ rockfile_eu_cloudflare() {
             JS=$(grep_script_by_order "$PAGE") || return
             JS=${JS#*<script type=\"text/javascript\">}
             JS=${JS%*</script>}
-
+	        JS=$(echo "$JS" | sed 's/\/\/<!\[CDATA\[//' | sed 's/\/\/\]\]>//' | sed 's/location\.hash/(location\.hash || "")/')
+		
             FORM_ANSWER=$(echo "
+		location = {};
                 function a_obj() {
                     this.style = new Object();
                     this.style.display = new Object();
@@ -99,18 +103,21 @@ rockfile_eu_cloudflare() {
                         return elts[id];
                     }
                 };
-                var final_fun;
+		var final_fun;
+
                 function setTimeout(value,time) {
-                    final_fun = value;
+			final_fun = value;
                 };
+		
                 $JS
-                final_fun();
+		
+		final_fun();
                 if (typeof console === 'object' && typeof console.log === 'function') {
                     console.log(elts['jschl-answer'].value);
                 } else {
                     print(elts['jschl-answer'].value);
-                }" | javascript) || return
-
+               }" | javascript) || return 
+		
                 # Set-Cookie: cf_clearance
                 PAGE=$(curl -L -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
                     "$BASE_URL/cdn-cgi/l/chk_jschl?jschl_vc=$FORM_VC&pass=$FORM_PASS&jschl_answer=$FORM_ANSWER") || return
@@ -159,12 +166,12 @@ rockfile_eu_login() {
         PAGE=$(curl -c "$COOKIE_FILE" "$BASE_URL") || return
         rockfile_eu_cloudflare "$PAGE" "$COOKIE_FILE" "$BASE_URL" || return
         rockfile_eu_switch_lang "$COOKIE_FILE" "$BASE_URL" || return
-
+	
         LOGIN_DATA='op=login&redirect=account&login=$USER&password=$PASSWORD'
 
         PAGE=$(post_login "$AUTH" "$COOKIE_FILE" "$LOGIN_DATA" \
             "$BASE_URL" -L -b "$COOKIE_FILE") || return
-
+	
         # If successful Set-Cookie: login xfss
         STATUS=$(parse_cookie_quiet 'xfss' < "$COOKIE_FILE")
         [ -z "$STATUS" ] && return $ERR_LOGIN_FAILED
@@ -258,7 +265,7 @@ rockfile_eu_upload() {
     local -r COOKIE_FILE=$1
     local -r FILE=$2
     local -r DESTFILE=$3
-    local -r BASE_URL='http://rockfile.eu'
+    local -r BASE_URL='http://rockfile.co'
     local ACCOUNT MAX_SIZE SIZE FOLDER_ID PAGE USER_TYPE UPLOAD_ID
 
     # User account is mandatory
@@ -303,7 +310,7 @@ rockfile_eu_upload() {
         FOLDER_ID=$(rockfile_eu_check_folder "$FOLDER" "$COOKIE_FILE" \
             "$BASE_URL") || return
     fi
-
+	#log_notice "$BASE_URL/upload_files"
     PAGE=$(curl -b "$COOKIE_FILE" "$BASE_URL/upload_files") || return
 
     # "reg"
