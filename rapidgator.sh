@@ -665,17 +665,17 @@ rapidgator_upload() {
 	elif [[ "$REQUEST_URL" =~ .*\"error\":.* ]]; then
 		ERROR_STRING=$( echo "$REQUEST_URL" | sed 's/.*"error":"\(.*\)".*/\1/' )
 		log_error "$ERROR_STRING"
-	else
-
-		local SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)","sid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2" SESSION_ID="\3"/')
-	
+	else	
+		local SCRIPT_TO_EVAL=$(echo "$REQUEST_URL" | sed 's/{"endpoint":"\(.*\)","uuid":"\(.*\)".*/ENDPOINT="\1" QQUUID="\2"/')
 		#log_notice "$SCRIPT_TO_EVAL"
 
 		eval "$SCRIPT_TO_EVAL"
 	
 		ENDPOINT=$( echo "$ENDPOINT" | sed 's/\(\\\/\)/\//g' )
-	
-		#log_notice "$ENDPOINT"
+		
+		SESSION_ID=$( echo "ENDPOINT" | sed 's/.*sid=\([^&]*\).*/\1/' )
+		
+		#log_notice "$SESSION_ID"
 
 		#wait 180 || return
 	
